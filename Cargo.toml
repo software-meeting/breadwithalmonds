@@ -4,6 +4,6 @@ name = "breadwithalmonds"
 version = "0.1.0"
 
 [dependencies]
-bmp = "0.5.0"
+image = "0.25.5"
 num = "0.4.3"
 rayon = "1.10.0"

@@ -1,22 +1,35 @@
-use bmp::{px, Image, Pixel};
+use image::{Rgb, RgbImage};
 use num::complex::{Complex64, ComplexFloat};
 use rayon::prelude::*;
 
 const REPS: u32 = 512;
-const BOUND: f64 = 255.0;
-const IMG_SIZE: u32 = 16258;
+const BOUND: f64 = 32.0;
+const IMG_SIZE: u32 = 4096;
 const N_PIXELS: usize = (IMG_SIZE * IMG_SIZE) as usize;
 
-fn main() {
-    let mut image = Image::new(IMG_SIZE, IMG_SIZE);
+// Number of quadrants is 2^n_splits
+// Offsets are 0,0 from top left quadrant
+const OFFSET_X: f64 = 150.0;
+const OFFSET_Y: f64 = 112.0;
+const N_SPLITS: u32 = 8;
+const SPLIT_SIZE: f64 = 3_f64 / (2u32.pow(N_SPLITS) as f64);
+const SCALE: f64 = SPLIT_SIZE / IMG_SIZE as f64;
+fn calculate_coords(x: u32, y: u32) -> (f64, f64) {
+    let x0 = -2.5 + OFFSET_X * SPLIT_SIZE;
+    let y0 = -1.5 + OFFSET_Y * SPLIT_SIZE;
+    (x0 + (x as f64) * SCALE, y0 + (y as f64) * SCALE)
+}
 
-    let pixels: Vec<Pixel> = (0..N_PIXELS)
+fn main() {
+    // let mut image = Image::new(IMG_SIZE, IMG_SIZE);
+    let mut image = RgbImage::new(IMG_SIZE, IMG_SIZE);
+
+    let pixels: Vec<Rgb<u8>> = (0..N_PIXELS)
         .into_par_iter()
         .map(|n| {
             let y = n as u32 / IMG_SIZE;
             let x = n as u32 % IMG_SIZE;
-            let a: f64 = -0.71875 + (x as f64) * 0.09375 / (IMG_SIZE as f64);
-            let b: f64 = 0.28125 + (y as f64) * 0.09375 / (IMG_SIZE as f64);
+            let (a, b) = calculate_coords(x, y);
 
             let mut z: Complex64 = Complex64::new(0.0, 0.0);
             let c: Complex64 = Complex64::new(a, b);
@@ -39,22 +52,22 @@ fn main() {
     for (n, pixel) in pixels.iter().enumerate() {
         let y = n as u32 / IMG_SIZE;
         let x = n as u32 % IMG_SIZE;
-        image.set_pixel(x, y, *pixel);
+        image.put_pixel(x, y, *pixel);
     }
 
-    image.save("out.bmp").unwrap();
+    image.save("out.png").unwrap();
 }
 
 // TODO: Review generated code
-fn u32_to_rgb_spectrum(input: u32) -> Pixel {
+fn u32_to_rgb_spectrum(input: u32) -> Rgb<u8> {
     // Define the spectrum "points".  We'll interpolate between them.
-    let spectrum_points: [Pixel; 6] = [
-        px!(0, 0, 0),
-        Pixel::new(255, 0, 0),   // Red
-        Pixel::new(255, 255, 0), // Yellow
-        Pixel::new(0, 255, 0),   // Green
-        Pixel::new(0, 255, 255), // Cyan
-        Pixel::new(0, 0, 255),   // Blue
+    let spectrum_points: [Rgb<u8>; 6] = [
+        Rgb([0, 0, 0]),
+        Rgb([255, 0, 0]),   // Red
+        Rgb([255, 255, 0]), // Yellow
+        Rgb([0, 255, 0]),   // Green
+        Rgb([0, 255, 255]), // Cyan
+        Rgb([0, 0, 255]),   // Blue
     ];
 
     let max_input = REPS;
@@ -77,15 +90,15 @@ fn u32_to_rgb_spectrum(input: u32) -> Pixel {
     let segment_position = (normalized_position * (spectrum_points.len() - 1) as f64) % 1.0;
 
     // Linear interpolation for each color component
-    let red = (start_color.r as f64
-        + (end_color.r as f64 - start_color.r as f64) * segment_position)
+    let red = (start_color.0[0] as f64
+        + (end_color.0[0] as f64 - start_color.0[0] as f64) * segment_position)
         .round() as u8;
-    let green = (start_color.g as f64
-        + (end_color.g as f64 - start_color.g as f64) * segment_position)
+    let green = (start_color.0[1] as f64
+        + (end_color.0[1] as f64 - start_color.0[1] as f64) * segment_position)
         .round() as u8;
-    let blue = (start_color.b as f64
-        + (end_color.b as f64 - start_color.b as f64) * segment_position)
+    let blue = (start_color.0[2] as f64
+        + (end_color.0[2] as f64 - start_color.0[2] as f64) * segment_position)
         .round() as u8;
 
-    Pixel::new(red, green, blue)
+    Rgb([red, green, blue])
 }
